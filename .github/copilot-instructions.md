@@ -45,16 +45,18 @@ The contributions API uses **Astro dynamic routes** with bracket notation:
 - Set `export const prerender = false` to disable prerendering for API routes
 
 **Data flow:**
-1. Fetches GitHub user profile HTML (no API key required)
-2. Parses contribution data from SVG calendar graph using regex
+1. Fetches GitHub contribution data from `.contribs` JSON endpoint
+2. Transforms nested week/day structure into flat array
 3. Returns structured JSON with contribution counts, levels, and metadata
-4. Implements in-memory caching (2-hour TTL) to avoid rate limits
+4. Implements in-memory caching (1-hour TTL) to avoid rate limits
 
 **Key implementation details:**
+- Source endpoint: `https://github.com/{username}.contribs`
 - Username validation: alphanumeric + hyphens, 1-39 chars
 - Timeout: 10 seconds for external fetch
 - Error handling: Returns structured JSON errors with appropriate HTTP status codes
 - CORS: Enabled with `Access-Control-Allow-Origin: *`
+- Level mapping: GitHub numeric levels (0-4) → string levels ('none', 'low', 'mid', 'high')
 
 ### Type Definitions
 
@@ -121,18 +123,18 @@ The `workshop/copilot.instructions.md` file contains **scoped instructions** tha
 
 ## External Dependencies
 
-- **GitHub Contribution Data**: Scraped from public profile HTML (no auth required)
+- **GitHub Contribution Data**: Fetched from `https://github.com/{username}.contribs` JSON endpoint
 - **Font**: Press Start 2P (retro gaming font) — loaded via Google Fonts CDN (if used)
 - **No database**: Uses in-memory caching only
 
 ## Rate Limiting Considerations
 
-GitHub may rate-limit profile scraping. Mitigations:
-- 2-hour cache TTL per username
+GitHub may rate-limit the `.contribs` endpoint. Mitigations:
+- 1-hour cache TTL per username
 - User-Agent header identifying the app
 - Graceful 503/504 error responses on fetch failures
 
 When extending the API, consider:
 - Adding GitHub token auth for higher limits
-- Using GitHub's GraphQL API instead of scraping
 - Implementing persistent cache (Redis, etc.)
+- Using GitHub's GraphQL API for additional user data
