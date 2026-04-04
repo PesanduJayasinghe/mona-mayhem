@@ -8,10 +8,616 @@
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Mona Mayhem</title>
+		<title>Mona Mayhem - GitHub Contribution Battle Arena</title>
 	</head>
 	<body>
-		<h1>Mona Mayhem</h1>
-		<p>Welcome to Mona Mayhem! Time to build a GitHub Contribution Battle Arena.</p>
+		<main class="container">
+			<header class="header">
+				<h1 class="title">Mona Mayhem</h1>
+				<p class="subtitle">GitHub Contribution Battle Arena</p>
+			</header>
+
+			<section class="battle-setup">
+				<div class="player-column">
+					<label for="player1" class="player-label">Player 1</label>
+					<input 
+						type="text" 
+						id="player1" 
+						class="player-input" 
+						placeholder="Enter GitHub username"
+						autocomplete="off"
+						autofocus
+					/>
+					<div class="preview-card" id="preview1"></div>
+				</div>
+
+				<div class="vs-badge">VS</div>
+
+				<div class="player-column">
+					<label for="player2" class="player-label">Player 2</label>
+					<input 
+						type="text" 
+						id="player2" 
+						class="player-input" 
+						placeholder="Enter GitHub username"
+						autocomplete="off"
+					/>
+					<div class="preview-card" id="preview2"></div>
+				</div>
+			</section>
+
+			<div class="battle-button-container">
+				<button id="battleBtn" class="btn btn-primary battle-btn" disabled>
+					BATTLE!
+				</button>
+			</div>
+
+			<section class="battle-results" id="results" style="display: none;">
+				<div class="results-header" id="winnerBanner"></div>
+				
+				<div class="players-comparison">
+					<div class="player-card" id="playerCard1"></div>
+					<div class="player-card" id="playerCard2"></div>
+				</div>
+			</section>
+		</main>
+
+		<style>
+			:root {
+				--bg-dark: #0a0a0f;
+				--bg-card: #12121a;
+				--neon-cyan: #00f5ff;
+				--neon-magenta: #ff00ff;
+				--neon-purple: #b366ff;
+				--text-primary: #ffffff;
+				--text-secondary: #a0a0b0;
+				--border-color: #2a2a3a;
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: 'Space Grotesk', -apple-system, sans-serif;
+				background: var(--bg-dark);
+				color: var(--text-primary);
+				line-height: 1.6;
+				min-height: 100vh;
+			}
+
+			body::before {
+				content: '';
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: 
+					linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px),
+					linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px);
+				background-size: 50px 50px;
+				pointer-events: none;
+				z-index: -1;
+			}
+
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 2rem;
+			}
+
+			.header {
+				text-align: center;
+				padding: 3rem 0 2rem;
+			}
+
+			.title {
+				font-size: clamp(2.5rem, 6vw, 4rem);
+				font-weight: 700;
+				margin-bottom: 0.5rem;
+				background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
+
+			.subtitle {
+				font-size: 1.25rem;
+				color: var(--text-secondary);
+			}
+
+			.battle-setup {
+				display: flex;
+				gap: 2rem;
+				align-items: flex-start;
+				justify-content: center;
+				margin: 3rem 0;
+				flex-wrap: wrap;
+			}
+
+			.player-column {
+				flex: 1;
+				min-width: 280px;
+				max-width: 400px;
+			}
+
+			.player-label {
+				display: block;
+				font-size: 0.875rem;
+				font-weight: 600;
+				color: var(--neon-cyan);
+				margin-bottom: 0.5rem;
+				text-transform: uppercase;
+				letter-spacing: 0.1em;
+			}
+
+			.player-input {
+				width: 100%;
+				padding: 1rem;
+				font-size: 1rem;
+				background: var(--bg-card);
+				border: 2px solid var(--border-color);
+				border-radius: 8px;
+				color: var(--text-primary);
+				transition: all 0.3s ease;
+				font-family: inherit;
+			}
+
+			.player-input:focus {
+				outline: none;
+				border-color: var(--neon-cyan);
+				box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+			}
+
+			.preview-card {
+				margin-top: 1rem;
+				min-height: 80px;
+				padding: 1rem;
+				background: var(--bg-card);
+				border: 1px solid var(--border-color);
+				border-radius: 8px;
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+			}
+
+			.preview-card:empty {
+				display: none;
+			}
+
+			.preview-card.loading {
+				justify-content: center;
+				color: var(--text-secondary);
+			}
+
+			.preview-card.error {
+				border-color: #ff4444;
+				color: #ff4444;
+			}
+
+			.preview-avatar {
+				width: 48px;
+				height: 48px;
+				border-radius: 50%;
+				border: 2px solid var(--neon-cyan);
+			}
+
+			.preview-info {
+				flex: 1;
+			}
+
+			.preview-username {
+				font-weight: 600;
+				color: var(--text-primary);
+			}
+
+			.preview-stats {
+				font-size: 0.875rem;
+				color: var(--text-secondary);
+			}
+
+			.vs-badge {
+				width: 80px;
+				height: 80px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+				border-radius: 50%;
+				font-size: 1.5rem;
+				font-weight: 700;
+				color: var(--bg-dark);
+				align-self: center;
+				flex-shrink: 0;
+				box-shadow: 0 10px 30px rgba(0, 245, 255, 0.3);
+			}
+
+			.battle-button-container {
+				text-align: center;
+				margin: 2rem 0;
+			}
+
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 0.5rem;
+				padding: 1rem 3rem;
+				border-radius: 8px;
+				font-weight: 600;
+				text-decoration: none;
+				transition: all 0.3s ease;
+				font-size: 1.25rem;
+				border: none;
+				cursor: pointer;
+				font-family: inherit;
+			}
+
+			.btn-primary {
+				background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+				color: var(--bg-dark);
+			}
+
+			.btn-primary:not(:disabled):hover {
+				transform: translateY(-2px);
+				box-shadow: 0 10px 40px rgba(0, 245, 255, 0.3);
+			}
+
+			.btn-primary:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+
+			.battle-results {
+				margin-top: 4rem;
+				animation: fadeIn 0.5s ease;
+			}
+
+			@keyframes fadeIn {
+				from { opacity: 0; transform: translateY(20px); }
+				to { opacity: 1; transform: translateY(0); }
+			}
+
+			.results-header {
+				text-align: center;
+				padding: 2rem;
+				background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+				border-radius: 12px;
+				margin-bottom: 2rem;
+			}
+
+			.winner-title {
+				font-size: 2rem;
+				font-weight: 700;
+				color: var(--bg-dark);
+				margin-bottom: 0.5rem;
+			}
+
+			.winner-score {
+				font-size: 1.25rem;
+				color: rgba(10, 10, 15, 0.8);
+			}
+
+			.players-comparison {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+				gap: 2rem;
+			}
+
+			.player-card {
+				background: var(--bg-card);
+				border: 2px solid var(--border-color);
+				border-radius: 12px;
+				padding: 2rem;
+			}
+
+			.player-card.winner {
+				border-color: var(--neon-cyan);
+				box-shadow: 0 0 30px rgba(0, 245, 255, 0.3);
+			}
+
+			.player-header {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				margin-bottom: 1.5rem;
+			}
+
+			.player-avatar {
+				width: 80px;
+				height: 80px;
+				border-radius: 50%;
+				border: 3px solid var(--neon-cyan);
+			}
+
+			.player-info h3 {
+				font-size: 1.5rem;
+				margin-bottom: 0.25rem;
+			}
+
+			.player-link {
+				color: var(--neon-cyan);
+				text-decoration: none;
+				font-size: 0.875rem;
+			}
+
+			.stats-box {
+				background: rgba(0, 245, 255, 0.1);
+				border: 1px solid var(--neon-cyan);
+				border-radius: 8px;
+				padding: 1rem;
+				margin-bottom: 1.5rem;
+			}
+
+			.stat-total {
+				font-size: 2.5rem;
+				font-weight: 700;
+				color: var(--neon-cyan);
+				font-family: 'JetBrains Mono', monospace;
+			}
+
+			.stat-label {
+				font-size: 0.875rem;
+				color: var(--text-secondary);
+			}
+
+			.contribution-graph {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, 12px);
+				gap: 3px;
+				overflow-x: auto;
+				padding: 1rem 0;
+			}
+
+			.contribution-square {
+				width: 12px;
+				height: 12px;
+				border-radius: 2px;
+				cursor: pointer;
+				transition: transform 0.2s ease;
+			}
+
+			.contribution-square:hover {
+				transform: scale(1.2);
+			}
+
+			.contribution-square[data-level="none"] {
+				background: #1a1a2e;
+			}
+
+			.contribution-square[data-level="low"] {
+				background: rgba(0, 245, 255, 0.4);
+			}
+
+			.contribution-square[data-level="mid"] {
+				background: rgba(179, 102, 255, 0.6);
+			}
+
+			.contribution-square[data-level="high"] {
+				background: #ff00ff;
+			}
+
+			.spinner {
+				border: 3px solid rgba(0, 245, 255, 0.3);
+				border-top: 3px solid var(--neon-cyan);
+				border-radius: 50%;
+				width: 30px;
+				height: 30px;
+				animation: spin 1s linear infinite;
+			}
+
+			@keyframes spin {
+				to { transform: rotate(360deg); }
+			}
+
+			@media (max-width: 768px) {
+				.battle-setup {
+					flex-direction: column;
+					align-items: center;
+				}
+
+				.vs-badge {
+					order: -1;
+					margin-bottom: 1rem;
+				}
+
+				.player-column {
+					max-width: 100%;
+				}
+			}
+		</style>
+
+		<script client:load>
+			// State management
+			const state = {
+				player1: { username: '', data: null, loading: false, error: null },
+				player2: { username: '', data: null, loading: false, error: null }
+			};
+
+			// Debounce utility
+			function debounce(func, wait) {
+				let timeout;
+				return function executedFunction(...args) {
+					const later = () => {
+						clearTimeout(timeout);
+						func(...args);
+					};
+					clearTimeout(timeout);
+					timeout = setTimeout(later, wait);
+				};
+			}
+
+			// Fetch user contribution data
+			async function fetchUserData(username) {
+				const response = await fetch(`/api/contributions/${username}`);
+				if (!response.ok) {
+					const error = await response.json();
+					throw new Error(error.error || 'Failed to fetch user data');
+				}
+				return response.json();
+			}
+
+			// Update preview card
+			function updatePreview(player, previewId) {
+				const preview = document.getElementById(previewId);
+				const playerState = state[player];
+
+				if (playerState.loading) {
+					preview.className = 'preview-card loading';
+					preview.innerHTML = '<div class="spinner"></div>';
+					return;
+				}
+
+				if (playerState.error) {
+					preview.className = 'preview-card error';
+					preview.innerHTML = `<span>${playerState.error}</span>`;
+					return;
+				}
+
+				if (playerState.data) {
+					preview.className = 'preview-card';
+					preview.innerHTML = `
+						<img src="${playerState.data.user.avatar}" alt="${playerState.data.user.username}" class="preview-avatar" />
+						<div class="preview-info">
+							<div class="preview-username">${playerState.data.user.username}</div>
+							<div class="preview-stats">${playerState.data.summary.total.toLocaleString()} contributions</div>
+						</div>
+					`;
+					return;
+				}
+
+				preview.innerHTML = '';
+			}
+
+			// Validate battle readiness
+			function updateBattleButton() {
+				const btn = document.getElementById('battleBtn');
+				const ready = state.player1.data && state.player2.data && 
+							 !state.player1.error && !state.player2.error;
+				btn.disabled = !ready;
+			}
+
+			// Handle input changes
+			const handleInput = debounce(async (player, username, previewId) => {
+				state[player].username = username;
+				state[player].error = null;
+
+				if (!username.trim()) {
+					state[player].data = null;
+					updatePreview(player, previewId);
+					updateBattleButton();
+					return;
+				}
+
+				state[player].loading = true;
+				updatePreview(player, previewId);
+
+				try {
+					const data = await fetchUserData(username);
+					state[player].data = data;
+					state[player].loading = false;
+					state[player].error = null;
+				} catch (error) {
+					state[player].loading = false;
+					state[player].error = error.message;
+					state[player].data = null;
+				}
+
+				updatePreview(player, previewId);
+				updateBattleButton();
+			}, 500);
+
+			// Determine winner
+			function determineWinner() {
+				const total1 = state.player1.data.summary.total;
+				const total2 = state.player2.data.summary.total;
+
+				if (total1 === total2) {
+					return {
+						isTie: true,
+						winner: null,
+						difference: 0
+					};
+				}
+
+				return {
+					isTie: false,
+					winner: total1 > total2 ? 'player1' : 'player2',
+					difference: Math.abs(total1 - total2)
+				};
+			}
+
+			// Render contribution graph
+			function renderGraph(contributions) {
+				return contributions
+					.map(day => `<div class="contribution-square" data-level="${day.level}" title="${day.date}: ${day.count} contributions"></div>`)
+					.join('');
+			}
+
+			// Handle battle
+			function handleBattle() {
+				const results = document.getElementById('results');
+				const winnerBanner = document.getElementById('winnerBanner');
+				const { isTie, winner, difference } = determineWinner();
+
+				// Winner banner
+				if (isTie) {
+					winnerBanner.innerHTML = `
+						<div class="winner-title">IT'S A TIE!</div>
+						<div class="winner-score">Both players have ${state.player1.data.summary.total.toLocaleString()} contributions</div>
+					`;
+				} else {
+					const winnerData = state[winner].data;
+					winnerBanner.innerHTML = `
+						<div class="winner-title">🏆 ${winnerData.user.username} WINS!</div>
+						<div class="winner-score">Victory by ${difference.toLocaleString()} contributions</div>
+					`;
+				}
+
+				// Render player cards
+				['player1', 'player2'].forEach((player, index) => {
+					const data = state[player].data;
+					const cardId = `playerCard${index + 1}`;
+					const card = document.getElementById(cardId);
+					const isWinner = winner === player;
+
+					card.className = `player-card ${isWinner ? 'winner' : ''}`;
+					card.innerHTML = `
+						<div class="player-header">
+							<img src="${data.user.avatar}" alt="${data.user.username}" class="player-avatar" />
+							<div class="player-info">
+								<h3>${data.user.username}</h3>
+								<a href="${data.user.url}" target="_blank" class="player-link">View Profile →</a>
+							</div>
+						</div>
+						<div class="stats-box">
+							<div class="stat-total">${data.summary.total.toLocaleString()}</div>
+							<div class="stat-label">Total Contributions</div>
+						</div>
+						<div class="contribution-graph">
+							${renderGraph(data.contributions)}
+						</div>
+					`;
+				});
+
+				// Show results
+				results.style.display = 'block';
+				results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			}
+
+			// Event listeners
+			document.getElementById('player1').addEventListener('input', (e) => {
+				handleInput('player1', e.target.value, 'preview1');
+			});
+
+			document.getElementById('player2').addEventListener('input', (e) => {
+				handleInput('player2', e.target.value, 'preview2');
+			});
+
+			document.getElementById('battleBtn').addEventListener('click', handleBattle);
+		</script>
 	</body>
 </html>

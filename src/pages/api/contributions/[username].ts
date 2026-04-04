@@ -1,3 +1,13 @@
+/**
+ * GitHub Contributions API Proxy
+ * 
+ * Server-side proxy that fetches contribution data from GitHub's .contribs JSON endpoint
+ * to bypass CORS restrictions. Implements caching with 1-hour TTL.
+ * 
+ * Endpoint: GET /api/contributions/[username]
+ * Source: https://github.com/{username}.contribs
+ */
+
 import type { APIRoute } from 'astro';
 
 export const prerender = false;
@@ -35,7 +45,8 @@ interface ContributionDay {
 }
 
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+const GITHUB_CONTRIBS_URL = (username: string) => `https://github.com/${username}.contribs`;
 const GITHUB_USER_URL = (username: string) => `https://github.com/${username}`;
 
 /**
@@ -83,16 +94,35 @@ function setCache(username: string, data: ContributionData): void {
 }
 
 /**
- * Fetches and parses GitHub contribution data from HTML
+ * GitHub .contribs API response structure
+ */
+interface GitHubContribsResponse {
+	schema: string;
+	generated_at: string;
+	from: string;
+	to: string;
+	total_contributions: number;
+	weeks: Array<{
+		first_day: string;
+		contribution_days: Array<{
+			count: number;
+			level: number;
+			weekday: number;
+		}>;
+	}>;
+}
+
+/**
+ * Fetches GitHub contribution data from the .contribs JSON endpoint
  */
 async function fetchGitHubContributions(username: string): Promise<ContributionData> {
-	const profileUrl = GITHUB_USER_URL(username);
+	const contribsUrl = GITHUB_CONTRIBS_URL(username);
 
 	try {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-		const response = await fetch(profileUrl, {
+		const response = await fetch(contribsUrl, {
 			headers: {
 				'User-Agent': 'Mona-Mayhem/1.0 (+https://github.com/PesanduJayasinghe/mona-mayhem)',
 			},
@@ -109,33 +139,24 @@ async function fetchGitHubContributions(username: string): Promise<ContributionD
 			throw { status: response.status, message: `GitHub returned ${response.status}` };
 		}
 
-		const html = await response.text();
+		const githubData: GitHubContribsResponse = await response.json();
 
-		// Parse user info from HTML
-		const userName = extractUserName(html);
-		const avatar = extractAvatar(html, username);
+		// Transform GitHub's nested structure into flat array
+		const contributions = transformContributions(githubData.weeks);
 
-		// Extract contribution data from the calendar graph SVG
-		const contributions = extractContributions(html);
-
-		// Validate contributions were parsed
-		if (contributions.length === 0) {
-			console.warn(`[contributions API] No contribution data parsed for user "${username}" - HTML structure may have changed`);
-		}
-
-		const totalContributions = calculateTotal(contributions);
-		const year = new Date().getFullYear();
+		// Extract year from the 'to' date
+		const year = new Date(githubData.to).getFullYear();
 
 		const data: ContributionData = {
 			user: {
 				username,
-				name: userName || username,
-				avatar,
-				url: profileUrl,
+				name: username,
+				avatar: `https://avatars.githubusercontent.com/${username}`,
+				url: GITHUB_USER_URL(username),
 			},
 			contributions,
 			summary: {
-				total: totalContributions,
+				total: githubData.total_contributions,
 				year,
 			},
 			metadata: {
@@ -161,40 +182,25 @@ async function fetchGitHubContributions(username: string): Promise<ContributionD
 }
 
 /**
- * Extracts user display name from HTML
+ * Transforms GitHub's nested weeks structure into a flat array of contribution days
  */
-function extractUserName(html: string): string | undefined {
-	const nameMatch = html.match(/class="p-nickname vcard-username d-block"[^>]*>([^<]+)<\/span>/);
-	return nameMatch ? nameMatch[1].trim() : undefined;
-}
-
-/**
- * Extracts avatar URL from HTML
- */
-function extractAvatar(html: string, username: string): string {
-	return `https://avatars.githubusercontent.com/u/${username}?v=4`;
-}
-
-/**
- * Parses contribution data from GitHub's contribution graph
- * Looks for rect elements with data-date and data-level attributes
- */
-function extractContributions(html: string): ContributionDay[] {
+function transformContributions(weeks: GitHubContribsResponse['weeks']): ContributionDay[] {
 	const contributions: ContributionDay[] = [];
 
-	// Match contribution rect pattern: data-date="YYYY-MM-DD" data-level="..." data-count="N"
-	const rectPattern = /data-date="(\d{4}-\d{2}-\d{2})"[^>]*data-level="([^"]*)"[^>]*data-count="(\d+)"/g;
+	for (const week of weeks) {
+		const firstDayDate = new Date(week.first_day);
 
-	let match;
-	while ((match = rectPattern.exec(html)) !== null) {
-		const [, date, level, count] = match;
-		const normalizedLevel = normalizeLevel(level);
-
-		contributions.push({
-			date,
-			count: parseInt(count, 10),
-			level: normalizedLevel,
-		});
+		for (const day of week.contribution_days) {
+			// Calculate the date by adding weekday offset to first_day
+			const date = new Date(firstDayDate);
+			date.setDate(date.getDate() + day.weekday);
+			
+			contributions.push({
+				date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+				count: day.count,
+				level: mapLevelToString(day.level),
+			});
+		}
 	}
 
 	// Sort by date ascending
@@ -204,21 +210,14 @@ function extractContributions(html: string): ContributionDay[] {
 }
 
 /**
- * Normalizes GitHub contribution levels to standard levels
+ * Maps GitHub's numeric levels (0-4) to our string levels
  */
-function normalizeLevel(level: string): 'none' | 'low' | 'mid' | 'high' {
-	if (!level || level === 'None' || level === '') return 'none';
-	if (level === 'L1 Low') return 'low';
-	if (level === 'L2 Medium') return 'mid';
-	if (level === 'L3 High' || level === 'L4') return 'high';
+function mapLevelToString(level: number): 'none' | 'low' | 'mid' | 'high' {
+	if (level === 0) return 'none';
+	if (level === 1) return 'low';
+	if (level === 2) return 'mid';
+	if (level >= 3) return 'high';
 	return 'none';
-}
-
-/**
- * Calculates total contributions from the data
- */
-function calculateTotal(contributions: ContributionDay[]): number {
-	return contributions.reduce((sum, day) => sum + day.count, 0);
 }
 
 /**
